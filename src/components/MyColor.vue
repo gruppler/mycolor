@@ -5,12 +5,99 @@
       <canvas ref="gCanvas" />
       <canvas ref="rCanvas" />
       <div class="zero" />
+      <div class="samples">
+        <div
+          class="current"
+          :style="{ width: `${(100 * rRand.length) / max}%` }"
+        >
+          <div class="count">{{ rRand.length }}</div>
+        </div>
+        <input
+          v-model="samples"
+          type="range"
+          :min="min"
+          :max="max"
+          step="10"
+          @click.stop
+        />
+        <div class="total" :style="{ left: `${(100 * samples) / max}%` }">
+          <input
+            v-model="samples"
+            type="number"
+            :min="min"
+            :max="max"
+            step="10"
+            @click.stop
+          />
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
+<style>
+.my-color,
+.my-color .charts,
+.my-color .zero,
+.my-color canvas {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+}
+.my-color .zero {
+  height: 50%;
+  bottom: 50%;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+}
+.my-color .samples {
+  position: absolute;
+  height: 5em;
+  bottom: calc(25% - 5em / 2);
+  left: 0;
+  right: 0;
+}
+.my-color .samples .current {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 5em;
+  background: rgba(0, 0, 0, 0.1);
+}
+.my-color .samples .count,
+.my-color .samples .total {
+  font-family: sans-serif;
+  font-size: 0.8em;
+  font-weight: bold;
+  position: absolute;
+  bottom: 0;
+  right: 0;
+}
+.my-color .samples .count {
+  top: 0;
+  transform: translateX(100%);
+}
+.my-color .samples input[type="range"] {
+  position: relative;
+  width: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.my-color .samples input[type="number"] {
+  background: transparent;
+  border: 0 none;
+  outline: none;
+  font-weight: bold;
+}
+</style>
+
 <script>
 const SAMPLES = 500;
+const MIN = 10;
+const MAX = 2000;
 
 export default {
   name: "MyColor",
@@ -27,7 +114,10 @@ export default {
       bChart: null,
       inits: [],
       timer: null,
-      showCharts: true
+      showCharts: true,
+      samples: SAMPLES,
+      min: MIN,
+      max: MAX
     };
   },
   computed: {
@@ -61,21 +151,21 @@ export default {
   },
   methods: {
     sample() {
-      this.rRand.push(Math.random());
-      this.gRand.push(Math.random());
-      this.bRand.push(Math.random());
-      if (this.rRand.length > SAMPLES) {
-        this.rRand.shift();
-        this.gRand.shift();
-        this.bRand.shift();
+      this.rRand.unshift(Math.random());
+      this.gRand.unshift(Math.random());
+      this.bRand.unshift(Math.random());
+      while (this.rRand.length > this.samples) {
+        this.rRand.pop();
+        this.gRand.pop();
+        this.bRand.pop();
       }
-      this.rHist.push(this.r);
-      this.gHist.push(this.g);
-      this.bHist.push(this.b);
+      this.rHist.unshift(this.r);
+      this.gHist.unshift(this.g);
+      this.bHist.unshift(this.b);
       while (this.rHist.length > window.innerWidth) {
-        this.rHist.shift();
-        this.gHist.shift();
-        this.bHist.shift();
+        this.rHist.pop();
+        this.gHist.pop();
+        this.bHist.pop();
       }
       this.drawChart(this.rChart, this.rHist);
       this.drawChart(this.gChart, this.gHist);
@@ -106,9 +196,9 @@ export default {
     drawChart(ctx, values) {
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       ctx.beginPath();
-      ctx.moveTo(0, this.y(values[0]));
+      ctx.moveTo(window.innerWidth, this.y(values[0]));
       values.forEach((value, i) => {
-        ctx.lineTo(i, this.y(value));
+        ctx.lineTo(window.innerWidth - i, this.y(value));
       });
       ctx.stroke();
     },
@@ -134,23 +224,3 @@ export default {
   }
 };
 </script>
-
-<style>
-.my-color,
-.my-color .charts,
-.my-color .zero,
-.my-color canvas {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  height: 100%;
-}
-.my-color .zero {
-  height: 50%;
-  bottom: 50%;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
-}
-</style>
