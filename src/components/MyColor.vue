@@ -1,10 +1,7 @@
 <template>
   <div class="my-color" :style="{ background: color }" @click="toggle">
-    <div class="charts" v-show="showCharts">
-      <canvas ref="bCanvas" />
-      <canvas ref="gCanvas" />
-      <canvas ref="rCanvas" />
-      <div class="zero" />
+    <div class="charts" v-show="showChart">
+      <canvas ref="canvas" />
       <div class="samples">
         <div
           class="current"
@@ -48,15 +45,10 @@
   width: 100%;
   height: 100%;
 }
-.my-color .zero {
-  height: 50%;
-  bottom: 50%;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
-}
 .my-color .samples {
   position: absolute;
-  height: 5em;
-  bottom: calc(25% - 5em / 2);
+  height: 80px;
+  bottom: calc(25% - 80px / 2);
   left: 0;
   right: 0;
 }
@@ -64,7 +56,7 @@
   position: absolute;
   top: 0;
   left: 0;
-  height: 5em;
+  height: 80px;
   background: rgba(0, 0, 0, 0.1);
 }
 .my-color .samples .count,
@@ -109,12 +101,9 @@ export default {
       rHist: [],
       gHist: [],
       bHist: [],
-      rChart: null,
-      gChart: null,
-      bChart: null,
-      inits: [],
+      chart: null,
       timer: null,
-      showCharts: true,
+      showChart: true,
       samples: SAMPLES,
       min: MIN,
       max: MAX
@@ -162,14 +151,12 @@ export default {
       this.rHist.unshift(this.r);
       this.gHist.unshift(this.g);
       this.bHist.unshift(this.b);
-      while (this.rHist.length > window.innerWidth) {
+      while (this.rHist.length > this.$refs.canvas.width) {
         this.rHist.pop();
         this.gHist.pop();
         this.bHist.pop();
       }
-      this.drawChart(this.rChart, this.rHist);
-      this.drawChart(this.gChart, this.gHist);
-      this.drawChart(this.bChart, this.bHist);
+      this.drawChart();
       this.timer = requestAnimationFrame(this.sample);
     },
     start() {
@@ -181,45 +168,60 @@ export default {
       this.timer = null;
     },
     toggle() {
-      this.showCharts = !this.showCharts;
+      this.showChart = !this.showChart;
     },
-    initCanvas(canvas, ctx, color) {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+    initCanvas() {
+      this.$refs.canvas.width = window.innerWidth;
+      this.$refs.canvas.height = window.innerHeight;
+    },
+    drawChart() {
+      const canvas = this.$refs.canvas;
+      const ctx = this.chart;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < this.rHist.length; i++) {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = `rgb(${this.rHist[i]},${this.gHist[i]},${this.bHist[i]})`;
+        ctx.beginPath();
+        ctx.moveTo(canvas.width - i, canvas.height / 3);
+        ctx.lineTo(canvas.width - i, (2 * canvas.height) / 3);
+        ctx.stroke();
+      }
+
       ctx.lineWidth = 3;
-      ctx.strokeStyle =
-        color === "r" ? "red" : color === "g" ? "green" : "blue";
-    },
-    initAll() {
-      this.inits.forEach(init => init());
-    },
-    drawChart(ctx, values) {
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-      ctx.beginPath();
-      ctx.moveTo(window.innerWidth, this.y(values[0]));
-      values.forEach((value, i) => {
-        ctx.lineTo(window.innerWidth - i, this.y(value));
+      ["r", "g", "b"].forEach(channel => {
+        const values = this[channel + "Hist"];
+        ctx.strokeStyle =
+          channel === "r" ? "red" : channel === "g" ? "green" : "blue";
+        ctx.beginPath();
+        ctx.moveTo(canvas.width, this.y(values[0]));
+        values.forEach((value, i) => {
+          ctx.lineTo(canvas.width - i, this.y(value));
+        });
+        ctx.stroke();
       });
+
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height / 2);
+      ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
     },
     y(value) {
-      return (1 - value / 255) * window.innerHeight;
+      return (1 - value / 255) * this.$refs.canvas.height;
     }
   },
   mounted() {
-    ["r", "g", "b"].forEach(c => {
-      let canvas = this.$refs[c + "Canvas"];
-      let ctx = canvas.getContext("2d");
-      const init = () => this.initCanvas(canvas, ctx, c);
-      this[c + "Chart"] = ctx;
-      this.inits.push(init);
-      init();
-    });
-    window.addEventListener("resize", this.initAll);
+    let canvas = this.$refs.canvas;
+    let ctx = canvas.getContext("2d");
+    this.chart = ctx;
+    this.initCanvas();
+    window.addEventListener("resize", this.initCanvas);
     this.start();
   },
   beforeDestroy() {
-    window.removeEventListener("resize", this.initAll);
+    window.removeEventListener("resize", this.initCanvas);
     this.stop();
   }
 };
