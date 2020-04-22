@@ -1,6 +1,6 @@
 <template>
   <div class="my-color" :style="{ background: color }" @click="toggle">
-    <div class="charts" v-show="showChart">
+    <div class="charts" v-show="show">
       <canvas ref="canvas" />
       <div class="samples">
         <div
@@ -65,11 +65,12 @@
   font-size: 0.8em;
   font-weight: bold;
   position: absolute;
-  bottom: 0;
+  top: 0;
   right: 0;
 }
 .my-color .samples .count {
-  top: 0;
+  top: auto;
+  bottom: 0;
   transform: translateX(100%);
 }
 .my-color .samples input[type="range"] {
@@ -103,8 +104,8 @@ export default {
       bHist: [],
       chart: null,
       timer: null,
-      showChart: true,
-      samples: SAMPLES,
+      show: localStorage.show === "true",
+      samples: 1 * localStorage.samples || SAMPLES,
       min: MIN,
       max: MAX
     };
@@ -168,7 +169,7 @@ export default {
       this.timer = null;
     },
     toggle() {
-      this.showChart = !this.showChart;
+      this.show = !this.show;
     },
     initCanvas() {
       this.$refs.canvas.width = window.innerWidth;
@@ -210,6 +211,14 @@ export default {
     },
     y(value) {
       return (1 - value / 255) * this.$refs.canvas.height;
+    }
+  },
+  watch: {
+    samples(samples) {
+      localStorage.samples = samples;
+    },
+    show(show) {
+      localStorage.show = show;
     }
   },
   mounted() {
