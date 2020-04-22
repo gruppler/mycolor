@@ -1,24 +1,26 @@
-# mycolor
+# My Color (mycolor)
 
-## Project setup
-```
-yarn install
-```
+A toy.
 
-### Compiles and hot-reloads for development
-```
-yarn run dev
+## Install the dependencies
+```bash
+npm install
 ```
 
-### Compiles and minifies for production
-```
-yarn run build
-```
-
-### Lints and fixes files
-```
-yarn run lint
+### Start the app in development mode (hot-code reloading, error reporting, etc.)
+```bash
+quasar dev
 ```
 
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+### Lint the files
+```bash
+npm run lint
+```
+
+### Build the app for production
+```bash
+quasar build
+```
+
+### Customize the configuration
+See [Configuring quasar.conf.js](https://quasar.dev/quasar-cli/quasar-conf-js).

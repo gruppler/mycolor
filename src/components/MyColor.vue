@@ -1,89 +1,38 @@
 <template>
   <div class="my-color" :style="{ background: color }" @click="toggle">
     <div class="charts" v-show="show">
-      <canvas ref="canvas" />
-      <div class="samples">
-        <div
-          class="current"
-          :style="{ width: `${(100 * rRand.length) / max}%` }"
-        >
-          <div class="count">{{ rRand.length }}</div>
-        </div>
-        <input
+      <canvas ref="canvas" class="absolute-full" />
+      <div class="samples absolute-full flex flex-center" @click.stop>
+        <q-linear-progress
+          class="absolute"
+          :value="(rRand.length - min) / (max - min)"
+          color="accent"
+          size="xl"
+        />
+        <q-slider
+          class="absolute"
+          color="secondary"
           v-model="samples"
-          type="range"
           :min="min"
           :max="max"
-          step="10"
-          @click.stop
+          :step="10"
+          label
         />
-        <div class="total" :style="{ left: `${(100 * samples) / max}%` }">
-          <input
-            v-model="samples"
-            type="number"
-            :min="min"
-            :max="max"
-            step="10"
-            @click.stop
-          />
-        </div>
       </div>
     </div>
   </div>
 </template>
 
-<style>
-.my-color,
-.my-color .charts,
-.my-color .zero,
-.my-color canvas {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  height: 100%;
-}
-.my-color .samples {
-  position: absolute;
-  height: 80px;
-  bottom: calc(25% - 80px / 2);
-  left: 0;
-  right: 0;
-}
-.my-color .samples .current {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 80px;
-  background: rgba(0, 0, 0, 0.1);
-}
-.my-color .samples .count,
-.my-color .samples .total {
-  font-family: sans-serif;
-  font-size: 0.8em;
-  font-weight: bold;
-  position: absolute;
-  top: 0;
-  right: 0;
-}
-.my-color .samples .count {
-  top: auto;
-  bottom: 0;
-  transform: translateX(100%);
-}
-.my-color .samples input[type="range"] {
-  position: relative;
-  width: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-}
-.my-color .samples input[type="number"] {
-  background: transparent;
-  border: 0 none;
-  outline: none;
-  font-weight: bold;
+<style lang="scss">
+.my-color {
+  .samples {
+    height: 40px;
+    top: calc(50% - 20px);
+    opacity: 0.7;
+    &:hover, &:active {
+      opacity: 1;
+    }
+  }
 }
 </style>
 
@@ -104,8 +53,8 @@ export default {
       bHist: [],
       chart: null,
       timer: null,
-      show: localStorage.show === "true",
-      samples: 1 * localStorage.samples || SAMPLES,
+      show: this.$q.localStorage.getItem("show") || false,
+      samples: this.$q.localStorage.getItem("samples") || SAMPLES,
       min: MIN,
       max: MAX
     };
@@ -215,10 +164,10 @@ export default {
   },
   watch: {
     samples(samples) {
-      localStorage.samples = samples;
+      this.$q.localStorage.set("samples", samples);
     },
     show(show) {
-      localStorage.show = show;
+      this.$q.localStorage.set("show", show);
     }
   },
   mounted() {
