@@ -10,10 +10,11 @@
   "scripts": {
     "lint": "eslint --ext .js,.vue --ignore-path .gitignore ./",
     "dev": "quasar dev -m pwa",
-    "build": "quasar build -m pwa && rm -rf docs/* && mv dist/pwa/* docs/ && rm -rf dist"
+    "build": "quasar build -m pwa"
   },
   "dependencies": {
     "@quasar/extras": "^1.0.0",
+    "lodash": "^4.17.15",
     "quasar": "^1.0.0"
   },
   "devDependencies": {

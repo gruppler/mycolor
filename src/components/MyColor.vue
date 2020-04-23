@@ -3,23 +3,20 @@
     <div class="charts" v-show="show">
       <canvas ref="canvas" class="absolute-full" />
       <div class="samples absolute-full flex flex-center" @click.stop>
-        <q-linear-progress
-          class="absolute"
-          :value="(rRand.length - min) / (max - min)"
-          color="accent"
-          size="xl"
-        />
         <q-slider
           class="absolute"
-          color="secondary"
+          color="accent"
           v-model="samples"
-          :min="min"
+          :min="0"
           :max="max"
           :step="10"
           label
+          label-text-color="secondary"
+          reverse
         />
       </div>
     </div>
+    <q-resize-observer @resize="initCanvas" />
   </div>
 </template>
 
@@ -28,90 +25,95 @@
   .samples {
     height: 40px;
     top: calc(50% - 20px);
-    opacity: 0.7;
-    &:hover, &:active {
-      opacity: 1;
-    }
   }
 }
 </style>
 
 <script>
-const SAMPLES = 500;
-const MIN = 10;
-const MAX = 2000;
+const SAMPLES = 300;
+
+import { flatten, mean } from "lodash";
 
 export default {
   name: "MyColor",
   data() {
     return {
-      rRand: [],
-      gRand: [],
-      bRand: [],
-      rHist: [],
-      gHist: [],
-      bHist: [],
+      sample: { r: [], g: [], b: [] },
+      history: { r: [], g: [], b: [], all: [] },
       chart: null,
       timer: null,
       show: this.$q.localStorage.getItem("show") || false,
       samples: this.$q.localStorage.getItem("samples") || SAMPLES,
-      min: MIN,
-      max: MAX
+      min: 10,
+      max: window.innerWidth
     };
   },
   computed: {
-    rAvg() {
-      return (
-        this.rRand.reduce((sum, value) => sum + value, 0) / this.rRand.length
+    mean() {
+      return {
+        r: mean(this.sample.r),
+        g: mean(this.sample.g),
+        b: mean(this.sample.b),
+        sample: mean(this.history.all.slice(0, this.samples)),
+        history: mean(this.history.all)
+      };
+    },
+    stdev() {
+      return mean(
+        this.history.all
+          .slice(0, this.samples)
+          .map(value => Math.abs(value - this.mean.sample))
       );
     },
-    gAvg() {
-      return (
-        this.gRand.reduce((sum, value) => sum + value, 0) / this.gRand.length
-      );
-    },
-    bAvg() {
-      return (
-        this.bRand.reduce((sum, value) => sum + value, 0) / this.bRand.length
+    stdevHistory() {
+      return mean(
+        this.history.all.map(value => Math.abs(value - this.mean.history))
       );
     },
     r() {
-      return Math.round(255 * this.rAvg);
+      return Math.round(this.mean.r);
     },
     g() {
-      return Math.round(255 * this.gAvg);
+      return Math.round(this.mean.g);
     },
     b() {
-      return Math.round(255 * this.bAvg);
+      return Math.round(this.mean.b);
     },
     color() {
       return `rgb(${this.r}, ${this.g}, ${this.b})`;
     }
   },
   methods: {
-    sample() {
-      this.rRand.unshift(Math.random());
-      this.gRand.unshift(Math.random());
-      this.bRand.unshift(Math.random());
-      while (this.rRand.length > this.samples) {
-        this.rRand.pop();
-        this.gRand.pop();
-        this.bRand.pop();
+    run() {
+      if (!this.samples) {
+        return;
       }
-      this.rHist.unshift(this.r);
-      this.gHist.unshift(this.g);
-      this.bHist.unshift(this.b);
-      while (this.rHist.length > this.$refs.canvas.width) {
-        this.rHist.pop();
-        this.gHist.pop();
-        this.bHist.pop();
+      this.sample.r.unshift(Math.round(255 * Math.random()));
+      this.sample.g.unshift(Math.round(255 * Math.random()));
+      this.sample.b.unshift(Math.round(255 * Math.random()));
+      while (this.sample.r.length > this.samples) {
+        this.sample.r.pop();
+        this.sample.g.pop();
+        this.sample.b.pop();
+      }
+      this.history.r.unshift(this.r);
+      this.history.g.unshift(this.g);
+      this.history.b.unshift(this.b);
+      this.history.all.unshift(this.r, this.g, this.b);
+      while (this.history.r.length > this.$refs.canvas.width) {
+        this.history.r.pop();
+        this.history.g.pop();
+        this.history.b.pop();
+        this.history.all.pop();
+        this.history.all.pop();
+        this.history.all.pop();
       }
       this.drawChart();
-      this.timer = requestAnimationFrame(this.sample);
+      this.timer = requestAnimationFrame(this.run);
     },
     start() {
       this.stop();
-      this.sample();
+      this.run();
     },
     stop() {
       cancelAnimationFrame(this.timer);
@@ -121,50 +123,91 @@ export default {
       this.show = !this.show;
     },
     initCanvas() {
-      this.$refs.canvas.width = window.innerWidth;
+      this.max = this.$refs.canvas.width = window.innerWidth;
       this.$refs.canvas.height = window.innerHeight;
     },
     drawChart() {
       const canvas = this.$refs.canvas;
       const ctx = this.chart;
+
+      const dev = 3 * this.stdev;
+      const devHistory = 3 * this.stdevHistory;
+      const mid = canvas.height / 2;
+      const top = mid - canvas.height / 6;
+      const bottom = mid + canvas.height / 6;
+      const right = canvas.width;
+      const left = right - this.sample.r.length;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      for (let i = 0; i < this.rHist.length; i++) {
+      // Color background
+      for (let i = 0; i < this.history.r.length; i++) {
         ctx.lineWidth = 1;
-        ctx.strokeStyle = `rgb(${this.rHist[i]},${this.gHist[i]},${this.bHist[i]})`;
+        ctx.strokeStyle = `rgb(${this.history.r[i]},${this.history.g[i]},${this.history.b[i]})`;
         ctx.beginPath();
-        ctx.moveTo(canvas.width - i, canvas.height / 3);
-        ctx.lineTo(canvas.width - i, (2 * canvas.height) / 3);
+        ctx.moveTo(right - i, top);
+        ctx.lineTo(right - i, bottom);
         ctx.stroke();
       }
 
-      ctx.lineWidth = 3;
+      // Channel charts
+      ctx.lineWidth = 1;
       ["r", "g", "b"].forEach(channel => {
-        const values = this[channel + "Hist"];
+        const values = this.history[channel];
         ctx.strokeStyle =
           channel === "r" ? "red" : channel === "g" ? "green" : "blue";
         ctx.beginPath();
-        ctx.moveTo(canvas.width, this.y(values[0]));
+        ctx.moveTo(right, this.y(values[0]));
         values.forEach((value, i) => {
-          ctx.lineTo(canvas.width - i, this.y(value));
+          ctx.lineTo(right - i, this.y(value));
         });
         ctx.stroke();
       });
 
+      // Axes
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
       ctx.lineWidth = 1;
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
       ctx.beginPath();
-      ctx.moveTo(0, canvas.height / 2);
-      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.moveTo(left, 0);
+      ctx.lineTo(left, canvas.height);
       ctx.stroke();
+
+      // Deviation lines
+      const drawDevLine = (dev, left, right, mid) => {
+        ctx.lineWidth = 1;
+        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+        ctx.fillRect(left, mid - dev, right - left, dev * 2);
+
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.beginPath();
+        ctx.moveTo(left, mid);
+        ctx.lineTo(right, mid);
+        ctx.stroke();
+      };
+      drawDevLine(
+        dev,
+        left,
+        right,
+        (1 - this.mean.sample / 255) * canvas.height
+      );
+      drawDevLine(
+        devHistory,
+        0,
+        left,
+        (1 - this.mean.history / 255) * canvas.height
+      );
     },
     y(value) {
       return (1 - value / 255) * this.$refs.canvas.height;
     }
   },
   watch: {
-    samples(samples) {
+    samples(samples, prevSamples) {
       this.$q.localStorage.set("samples", samples);
+      if (samples && !prevSamples) {
+        this.run();
+      }
     },
     show(show) {
       this.$q.localStorage.set("show", show);
@@ -174,12 +217,9 @@ export default {
     let canvas = this.$refs.canvas;
     let ctx = canvas.getContext("2d");
     this.chart = ctx;
-    this.initCanvas();
-    window.addEventListener("resize", this.initCanvas);
     this.start();
   },
   beforeDestroy() {
-    window.removeEventListener("resize", this.initCanvas);
     this.stop();
   }
 };
