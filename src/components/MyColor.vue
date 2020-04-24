@@ -36,7 +36,9 @@
 
 <script>
 const SAMPLES = 300;
+const THRESHOLD = 3;
 
+import Color from "color-lite";
 import { flatten, mean } from "lodash";
 
 export default {
@@ -75,6 +77,25 @@ export default {
         this.history.all.map(value => Math.abs(value - this.mean.history))
       );
     },
+    zScores() {
+      const avg = 255 / 2;
+      const stdev = this.stdevHistory;
+      let zScores = {
+        r: this.history.r.map(value => Math.abs(value - avg) / stdev),
+        g: this.history.g.map(value => Math.abs(value - avg) / stdev),
+        b: this.history.b.map(value => Math.abs(value - avg) / stdev),
+        all: null
+      };
+
+      zScores.all = zScores.r.map((r, i) => {
+        r = r;
+        let g = zScores.g[i];
+        let b = zScores.b[i];
+        return mean(r, g, b);
+      });
+
+      return zScores.all;
+    },
     r() {
       return Math.round(this.mean.r);
     },
@@ -85,17 +106,29 @@ export default {
       return Math.round(this.mean.b);
     },
     color() {
-      return `rgb(${this.r}, ${this.g}, ${this.b})`;
+      return this.getColor(0).toString(Color.RGB);
     }
   },
   methods: {
+    getColor(i) {
+      let color = new Color(
+        this.history.r[i],
+        this.history.g[i],
+        this.history.b[i]
+      );
+      const zScore = this.zScores[i];
+      color.tune({ s: (zScore - THRESHOLD) * THRESHOLD });
+      return color;
+    },
     run() {
       if (!this.samples) {
         return;
       }
-      this.sample.r.unshift(Math.round(255 * Math.random()));
-      this.sample.g.unshift(Math.round(255 * Math.random()));
-      this.sample.b.unshift(Math.round(255 * Math.random()));
+      while (this.sample.r.length <= this.samples) {
+        this.sample.r.unshift(Math.round(255 * Math.random()));
+        this.sample.g.unshift(Math.round(255 * Math.random()));
+        this.sample.b.unshift(Math.round(255 * Math.random()));
+      }
       while (this.sample.r.length > this.samples) {
         this.sample.r.pop();
         this.sample.g.pop();
@@ -135,8 +168,8 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = this.chart;
 
-      const dev = 3 * this.stdev;
-      const devHistory = 3 * this.stdevHistory;
+      const dev = THRESHOLD * this.stdev;
+      const devHistory = THRESHOLD * this.stdevHistory;
       const mid = canvas.height / 2;
       const top = mid - canvas.height / 6;
       const bottom = mid + canvas.height / 6;
@@ -147,8 +180,8 @@ export default {
 
       // Color background
       for (let i = 0; i < this.history.r.length; i++) {
+        ctx.strokeStyle = this.getColor(i).toString(Color.RGB);
         ctx.lineWidth = 1;
-        ctx.strokeStyle = `rgb(${this.history.r[i]},${this.history.g[i]},${this.history.b[i]})`;
         ctx.beginPath();
         ctx.moveTo(right - i, top);
         ctx.lineTo(right - i, bottom);
@@ -178,30 +211,26 @@ export default {
       ctx.stroke();
 
       // Deviation lines
-      const drawDevLine = (dev, left, right, mid) => {
-        ctx.lineWidth = 1;
-        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-        ctx.fillRect(left, mid - dev, right - left, dev * 2);
-
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-        ctx.beginPath();
-        ctx.moveTo(left, mid);
-        ctx.lineTo(right, mid);
-        ctx.stroke();
+      const drawDevLine = (dev, left, right, mean, followMean = false) => {
+        dev = (canvas.height * dev) / 255;
+        mean = (1 - mean / 255) * canvas.height;
+        ctx.fillRect(
+          left,
+          (followMean ? mean : mid) - dev,
+          right - left,
+          dev * 2
+        );
+        ctx.fillRect(
+          left,
+          Math.min(mid, mean),
+          right - left,
+          Math.abs(mid - mean)
+        );
       };
-      drawDevLine(
-        dev,
-        left,
-        right,
-        (1 - this.mean.sample / 255) * canvas.height
-      );
-      drawDevLine(
-        devHistory,
-        0,
-        left,
-        (1 - this.mean.history / 255) * canvas.height
-      );
+      ctx.fillStyle = "rgba(0,0,0,0.1)";
+      drawDevLine(devHistory, 0, right, this.mean.history);
+      ctx.fillStyle = "rgba(255,255,255,0.1)";
+      drawDevLine(dev, left, right, this.mean.sample, true);
     },
     y(value) {
       return (1 - value / 255) * this.$refs.canvas.height;
