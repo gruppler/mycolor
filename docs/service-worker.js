@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js");
 
 importScripts(
-  "precache-manifest.2b475b867460285289aed095816c41db.js"
+  "precache-manifest.24b5e183d2c099688c18a4c17abd2966.js"
 );
 
 workbox.core.setCacheNameDetails({prefix: "mycolor"});
