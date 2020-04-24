@@ -2,8 +2,8 @@
   <div
     class="my-color"
     :style="{ background: color }"
-    @click="toggle"
-    @click.right.prevent="timer ? stop() : start()"
+    @click="togglePlay"
+    @click.right.prevent="toggleView"
   >
     <div class="charts" v-show="show">
       <canvas ref="canvas" class="absolute-full" />
@@ -157,8 +157,11 @@ export default {
       cancelAnimationFrame(this.timer);
       this.timer = null;
     },
-    toggle() {
+    toggleView() {
       this.show = !this.show;
+    },
+    togglePlay() {
+      this.timer ? this.stop() : this.start();
     },
     initCanvas() {
       this.max = this.$refs.canvas.width = window.innerWidth;
