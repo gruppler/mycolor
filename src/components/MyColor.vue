@@ -1,5 +1,10 @@
 <template>
-  <div class="my-color" :style="{ background: color }" @click="toggle">
+  <div
+    class="my-color"
+    :style="{ background: color }"
+    @click="toggle"
+    @click.right.prevent="timer ? stop() : start()"
+  >
     <div class="charts" v-show="show">
       <canvas ref="canvas" class="absolute-full" />
       <div class="samples absolute-full flex flex-center" @click.stop>
