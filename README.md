@@ -2,6 +2,8 @@
 
 A toy.
 
+![help](./help.png)
+
 ## Install the dependencies
 ```bash
 npm install
