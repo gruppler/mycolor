@@ -38,6 +38,10 @@
 const SAMPLES = 300;
 const THRESHOLD = 3;
 
+const RED = "rgba(255,0,0,0.5)";
+const GREEN = "rgba(0,255,0,0.5)";
+const BLUE = "rgba(0,0,255,0.5)";
+
 import Color from "color-lite";
 import { flatten, mean } from "lodash";
 
@@ -101,7 +105,7 @@ export default {
       return Math.round(this.mean.b);
     },
     color() {
-      return this.getColor(0).toString(Color.RGB);
+      return this.getColor(0).toString();
     }
   },
   methods: {
@@ -186,8 +190,12 @@ export default {
 
       for (let i = 0; i < this.history.r.length; i++) {
         // Historical deviation
+        const color = this.getColor(i);
         let d = (canvas.height * THRESHOLD * this.history.stdev[i]) / 255;
-        ctx.strokeStyle = "rgba(0,0,0,0.2)";
+        ctx.strokeStyle = color
+          .clone()
+          .tune({ l: -10 })
+          .toString();
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(right - i, mid - d);
@@ -197,7 +205,7 @@ export default {
         // Historical absolute zScore
         let az =
           (canvas.height * this.history.z[i] * this.history.stdev[i]) / 255;
-        ctx.strokeStyle = this.getColor(i).toString(Color.RGB);
+        ctx.strokeStyle = color.toString();
         ctx.beginPath();
         ctx.moveTo(right - i, mid - az);
         ctx.lineTo(right - i, mid + az);
@@ -217,7 +225,7 @@ export default {
       ["r", "g", "b"].forEach(channel => {
         const values = this.history[channel];
         ctx.strokeStyle =
-          channel === "r" ? "red" : channel === "g" ? "green" : "blue";
+          channel === "r" ? RED : channel === "g" ? GREEN : BLUE;
         ctx.beginPath();
         ctx.moveTo(right, this.y(values[0]));
         values.forEach((value, i) => {
