@@ -41,12 +41,14 @@ const THRESHOLD = 3;
 import Color from "color-lite";
 import { flatten, mean } from "lodash";
 
+const z = (value, mean, stdev) => Math.abs(value - mean) / stdev;
+
 export default {
   name: "MyColor",
   data() {
     return {
       sample: { r: [], g: [], b: [] },
-      history: { r: [], g: [], b: [], all: [] },
+      history: { r: [], g: [], b: [], all: [], mean: [], stdev: [], z: [] },
       chart: null,
       timer: null,
       show: this.$q.localStorage.getItem("show") || false,
@@ -66,35 +68,28 @@ export default {
       };
     },
     stdev() {
-      return mean(
-        this.history.all
-          .slice(0, this.samples)
-          .map(value => Math.abs(value - this.mean.sample))
+      return Math.sqrt(
+        mean(
+          this.history.all
+            .slice(0, this.samples)
+            .map(value => Math.pow(value - this.mean.sample, 2))
+        )
       );
     },
     stdevHistory() {
-      return mean(
-        this.history.all.map(value => Math.abs(value - this.mean.history))
+      return Math.sqrt(
+        mean(
+          this.history.all.map(value => Math.pow(value - this.mean.history, 2))
+        )
       );
     },
-    zScores() {
+    z() {
       const avg = 255 / 2;
       const stdev = this.stdevHistory;
-      let zScores = {
-        r: this.history.r.map(value => Math.abs(value - avg) / stdev),
-        g: this.history.g.map(value => Math.abs(value - avg) / stdev),
-        b: this.history.b.map(value => Math.abs(value - avg) / stdev),
-        all: null
-      };
-
-      zScores.all = zScores.r.map((r, i) => {
-        r = r;
-        let g = zScores.g[i];
-        let b = zScores.b[i];
-        return mean(r, g, b);
-      });
-
-      return zScores.all;
+      const r = z(this.r, avg, stdev);
+      const g = z(this.g, avg, stdev);
+      const b = z(this.b, avg, stdev);
+      return mean([r, g, b]);
     },
     r() {
       return Math.round(this.mean.r);
@@ -116,8 +111,10 @@ export default {
         this.history.g[i],
         this.history.b[i]
       );
-      const zScore = this.zScores[i];
-      color.tune({ s: (zScore - THRESHOLD) * THRESHOLD });
+      const zScore = this.history.z[i];
+      if (zScore > THRESHOLD) {
+        color.tune({ s: (zScore - THRESHOLD) * THRESHOLD });
+      }
       return color;
     },
     run() {
@@ -138,6 +135,9 @@ export default {
       this.history.g.unshift(this.g);
       this.history.b.unshift(this.b);
       this.history.all.unshift(this.r, this.g, this.b);
+      this.history.mean.unshift(this.mean.history);
+      this.history.stdev.unshift(this.stdevHistory);
+      this.history.z.unshift(this.z);
       while (this.history.r.length > this.$refs.canvas.width) {
         this.history.r.pop();
         this.history.g.pop();
@@ -145,6 +145,9 @@ export default {
         this.history.all.pop();
         this.history.all.pop();
         this.history.all.pop();
+        this.history.mean.pop();
+        this.history.stdev.pop();
+        this.history.z.pop();
       }
       this.drawChart();
       this.timer = requestAnimationFrame(this.run);
@@ -181,13 +184,31 @@ export default {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Color background
       for (let i = 0; i < this.history.r.length; i++) {
-        ctx.strokeStyle = this.getColor(i).toString(Color.RGB);
+        // Historical deviation
+        let d = (canvas.height * THRESHOLD * this.history.stdev[i]) / 255;
+        ctx.strokeStyle = "rgba(0,0,0,0.2)";
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(right - i, top);
-        ctx.lineTo(right - i, bottom);
+        ctx.moveTo(right - i, mid - d);
+        ctx.lineTo(right - i, mid + d);
+        ctx.stroke();
+
+        // Historical absolute zScore
+        let az =
+          (canvas.height * this.history.z[i] * this.history.stdev[i]) / 255;
+        ctx.strokeStyle = this.getColor(i).toString(Color.RGB);
+        ctx.beginPath();
+        ctx.moveTo(right - i, mid - az);
+        ctx.lineTo(right - i, mid + az);
+        ctx.stroke();
+
+        // Historical Mean
+        let m = canvas.height * (1 - this.history.mean[i] / 255);
+        ctx.strokeStyle = "rgba(255,255,255,0.25)";
+        ctx.beginPath();
+        ctx.moveTo(right - i, m);
+        ctx.lineTo(right - i, mid);
         ctx.stroke();
       }
 
@@ -213,27 +234,13 @@ export default {
       ctx.lineTo(left, canvas.height);
       ctx.stroke();
 
-      // Deviation lines
-      const drawDevLine = (dev, left, right, mean, followMean = false) => {
-        dev = (canvas.height * dev) / 255;
-        mean = (1 - mean / 255) * canvas.height;
-        ctx.fillRect(
-          left,
-          (followMean ? mean : mid) - dev,
-          right - left,
-          dev * 2
-        );
-        ctx.fillRect(
-          left,
-          Math.min(mid, mean),
-          right - left,
-          Math.abs(mid - mean)
-        );
-      };
-      ctx.fillStyle = "rgba(0,0,0,0.1)";
-      drawDevLine(devHistory, 0, right, this.mean.history);
+      // Sample Deviation and Mean
+      let d = (canvas.height * dev) / 255;
+      let m = (1 - this.mean.sample / 255) * canvas.height;
       ctx.fillStyle = "rgba(255,255,255,0.1)";
-      drawDevLine(dev, left, right, this.mean.sample, true);
+      ctx.fillRect(left, m - d, right - left, d * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.fillRect(left, Math.min(mid, m), right - left, Math.abs(mid - m));
     },
     y(value) {
       return (1 - value / 255) * this.$refs.canvas.height;
