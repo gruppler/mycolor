@@ -39,9 +39,9 @@
 const SAMPLES = 300;
 const THRESHOLD = 3;
 
-const RED = "rgba(255,0,0,0.5)";
-const GREEN = "rgba(0,255,0,0.5)";
-const BLUE = "rgba(0,0,255,0.5)";
+const RED = "rgba(255,0,0,0.25)";
+const GREEN = "rgba(0,255,0,0.25)";
+const BLUE = "rgba(0,0,255,0.25)";
 
 import Color from "color-lite";
 import { flatten, mean } from "lodash";
