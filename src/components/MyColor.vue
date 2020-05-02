@@ -11,7 +11,8 @@
         <q-slider
           class="absolute"
           color="accent"
-          v-model="samples"
+          :value="samples"
+          @change="value => (samples = value)"
           :min="0"
           :max="max"
           :step="10"
@@ -80,17 +81,18 @@ export default {
               .map(value => Math.pow(value - this.mean.sample, 2))
           )
         ),
-        history:
-        Math.sqrt(
+        history: Math.sqrt(
           mean(
-            this.history.all.map(value => Math.pow(value - this.mean.history, 2))
+            this.history.all.map(value =>
+              Math.pow(value - this.mean.history, 2)
+            )
           )
         )
-      }
+      };
     },
     z() {
-      const avg = 255 / 2;
-      const stdev = this.stdev.history;
+      const avg = this.mean.sample;
+      const stdev = this.stdev.sample;
       const r = z(this.r, avg, stdev);
       const g = z(this.g, avg, stdev);
       const b = z(this.b, avg, stdev);
@@ -116,10 +118,6 @@ export default {
         this.history.g[i],
         this.history.b[i]
       );
-      const zScore = this.history.z[i];
-      if (zScore > THRESHOLD) {
-        color.tune({ s: (zScore - THRESHOLD) * THRESHOLD });
-      }
       return color;
     },
     run() {
@@ -140,7 +138,7 @@ export default {
       this.history.g.unshift(this.g);
       this.history.b.unshift(this.b);
       this.history.all.unshift(this.r, this.g, this.b);
-      this.history.mean.unshift(this.mean.history);
+      this.history.mean.unshift(this.mean.sample);
       this.history.stdev.unshift(this.stdev.history);
       this.history.z.unshift(this.z);
       while (this.history.r.length > this.$refs.canvas.width) {
@@ -204,19 +202,19 @@ export default {
         ctx.stroke();
 
         // Historical absolute zScore
+        let hm = canvas.height * (1 - this.history.mean[i] / 255);
         let az =
           (canvas.height * this.history.z[i] * this.history.stdev[i]) / 255;
         ctx.strokeStyle = color.toString();
         ctx.beginPath();
-        ctx.moveTo(right - i, mid - az);
-        ctx.lineTo(right - i, mid + az);
+        ctx.moveTo(right - i, hm - az);
+        ctx.lineTo(right - i, hm + az);
         ctx.stroke();
 
         // Historical Mean
-        let m = canvas.height * (1 - this.history.mean[i] / 255);
         ctx.strokeStyle = "rgba(255,255,255,0.25)";
         ctx.beginPath();
-        ctx.moveTo(right - i, m);
+        ctx.moveTo(right - i, hm);
         ctx.lineTo(right - i, mid);
         ctx.stroke();
       }
