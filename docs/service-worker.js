@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js");
 
 importScripts(
-  "precache-manifest.b6e51f222d118a4b243c7536872d89c1.js"
+  "precache-manifest.ec123c8e9acfc5c28291263cb6e7dda7.js"
 );
 
 workbox.core.setCacheNameDetails({prefix: "mycolor"});
@@ -30,3 +30,5 @@ workbox.core.clientsClaim();
  */
 self.__precacheManifest = [].concat(self.__precacheManifest || []);
 workbox.precaching.precacheAndRoute(self.__precacheManifest, {});
+
+workbox.routing.registerNavigationRoute(workbox.precaching.getCacheKeyForURL("offline.html"));
