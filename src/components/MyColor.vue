@@ -72,24 +72,25 @@ export default {
       };
     },
     stdev() {
-      return Math.sqrt(
-        mean(
-          this.history.all
-            .slice(0, this.samples)
-            .map(value => Math.pow(value - this.mean.sample, 2))
+      return {
+        sample: Math.sqrt(
+          mean(
+            this.history.all
+              .slice(0, this.samples)
+              .map(value => Math.pow(value - this.mean.sample, 2))
+          )
+        ),
+        history:
+        Math.sqrt(
+          mean(
+            this.history.all.map(value => Math.pow(value - this.mean.history, 2))
+          )
         )
-      );
-    },
-    stdevHistory() {
-      return Math.sqrt(
-        mean(
-          this.history.all.map(value => Math.pow(value - this.mean.history, 2))
-        )
-      );
+      }
     },
     z() {
       const avg = 255 / 2;
-      const stdev = this.stdevHistory;
+      const stdev = this.stdev.history;
       const r = z(this.r, avg, stdev);
       const g = z(this.g, avg, stdev);
       const b = z(this.b, avg, stdev);
@@ -140,7 +141,7 @@ export default {
       this.history.b.unshift(this.b);
       this.history.all.unshift(this.r, this.g, this.b);
       this.history.mean.unshift(this.mean.history);
-      this.history.stdev.unshift(this.stdevHistory);
+      this.history.stdev.unshift(this.stdev.history);
       this.history.z.unshift(this.z);
       while (this.history.r.length > this.$refs.canvas.width) {
         this.history.r.pop();
@@ -178,8 +179,8 @@ export default {
       const canvas = this.$refs.canvas;
       const ctx = this.chart;
 
-      const dev = THRESHOLD * this.stdev;
-      const devHistory = THRESHOLD * this.stdevHistory;
+      const dev = THRESHOLD * this.stdev.sample;
+      const devHistory = THRESHOLD * this.stdev.history;
       const mid = canvas.height / 2;
       const top = mid - canvas.height / 6;
       const bottom = mid + canvas.height / 6;
