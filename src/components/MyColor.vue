@@ -1,18 +1,12 @@
 <template>
-  <div
-    class="my-color"
-    :style="{ background: color }"
-    @click="togglePlay"
-    @click.right.prevent="toggleView"
-  >
-    <div class="charts" v-show="show">
-      <canvas ref="canvas" class="absolute-full" />
+  <div class="my-color" @click="togglePlay" @click.right.prevent="save">
+    <div class="charts">
+      <canvas ref="canvas" class="absolute-full" :style="{ background: color }" />
       <div class="samples absolute-full flex flex-center" @click.stop>
         <q-slider
           class="absolute"
           color="accent"
-          :value="samples"
-          @change="value => (samples = value)"
+          v-model="samples"
           :min="0"
           :max="max"
           :step="10"
@@ -43,8 +37,9 @@ const RED = "rgba(255,0,0,0.25)";
 const GREEN = "rgba(0,255,0,0.25)";
 const BLUE = "rgba(0,0,255,0.25)";
 
-import Color from "color-lite";
+import { exportFile } from "quasar";
 import { flatten, mean } from "lodash";
+import Color from "color-lite";
 
 const z = (value, mean, stdev) => Math.abs(value - mean) / stdev;
 
@@ -56,7 +51,6 @@ export default {
       history: { r: [], g: [], b: [], all: [], mean: [], stdev: [], z: [] },
       chart: null,
       timer: null,
-      show: this.$q.localStorage.getItem("show") || false,
       samples: this.$q.localStorage.getItem("samples") || SAMPLES,
       min: 10,
       max: window.innerWidth
@@ -163,8 +157,10 @@ export default {
       cancelAnimationFrame(this.timer);
       this.timer = null;
     },
-    toggleView() {
-      this.show = !this.show;
+    save() {
+      const now = new Date();
+      let filename = `MyColor ${now.toISOString()}.png`;
+      this.$refs.canvas.toBlob(blob => exportFile(filename, blob), "image/png");
     },
     togglePlay() {
       this.timer ? this.stop() : this.start();
@@ -185,7 +181,8 @@ export default {
       const right = canvas.width;
       const left = right - this.sample.r.length;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = this.color;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       for (let i = 0; i < this.history.r.length; i++) {
         // Historical deviation
@@ -202,7 +199,8 @@ export default {
         ctx.stroke();
 
         // Historical absolute zScore
-        let hm = canvas.height * (1 - this.history.mean[i] / 255);
+        let mean = 1 - this.history.mean[i] / 255;
+        let hm = canvas.height * mean;
         let az =
           (canvas.height * this.history.z[i] * this.history.stdev[i]) / 255;
         ctx.strokeStyle = color.toString();
@@ -212,10 +210,18 @@ export default {
         ctx.stroke();
 
         // Historical Mean
-        ctx.strokeStyle = "rgba(255,255,255,0.25)";
+        ctx.strokeStyle = color
+          .clone()
+          .tune({ s: 30 * Math.abs(mean) })
+          .toString();
         ctx.beginPath();
         ctx.moveTo(right - i, hm);
         ctx.lineTo(right - i, mid);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+        ctx.beginPath();
+        ctx.moveTo(right - i, hm);
+        ctx.lineTo(right - i, hm + (hm < mid ? 1 : -1));
         ctx.stroke();
       }
 
@@ -239,6 +245,13 @@ export default {
       ctx.beginPath();
       ctx.moveTo(left, 0);
       ctx.lineTo(left, canvas.height);
+      ctx.moveTo(left, mid);
+      ctx.lineTo(right, mid);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+      ctx.moveTo(0, mid);
+      ctx.lineTo(left, mid);
       ctx.stroke();
 
       // Sample Deviation and Mean
@@ -259,9 +272,6 @@ export default {
       if (samples && !prevSamples) {
         this.run();
       }
-    },
-    show(show) {
-      this.$q.localStorage.set("show", show);
     }
   },
   mounted() {
